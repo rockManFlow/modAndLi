@@ -1,0 +1,288 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xmlns:mvc="http://www.springframework.org/schema/mvc" xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/task
+        http://www.springframework.org/schema/task/spring-task.xsd
+        http://www.springframework.org/schema/cache
+        http://www.springframework.org/schema/cache/spring-cache.xsd
+        http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+    <!--会自动注册DefaultAnnotationHandlerMapping与AnnotationMethodHandlerAdapter 两个bean,
+    是spring MVC为@Controllers分发请求所必须的，如果不加有可能不会加载解析controller-->
+    <!--有的不加这个也可以访问到controller。但有的却不行，因为web.xml中DispatcherServlet是拦截/的请求，
+    请求不能被控制器捕捉，给springmvc注解驱动-->
+    <mvc:annotation-driven/>
+    <!--spring扫描的包,启动注解功能-->
+    <context:component-scan base-package="com.model"/>
+    <!--将隐式地向Spring容器注册AutowiredAnnotationBeanPostProcessor使@Autowired注解能起作用、 CommonAnnotationBeanPostProcessor、
+     PersistenceAnnotationBeanPostProcessor以及 RequiredAnnotationBeanPostProcessor这4个BeanPostProcessor。
+     -->
+    <context:annotation-config/>
+    <!--小配置文件的位置-->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!--跑批任务的驱动-->
+    <task:annotation-driven/>
+    <!--设置线程池个数，默认为1个-->
+    <task:scheduler id="springScheduler" pool-size="3"/>
+    <!--加上这个就可以访问到静态资源，因为在web.xml中servlet过滤器/拦截了所有的请求-->
+    <mvc:default-servlet-handler/>
+    <cache:annotation-driven/>
+
+    <!--配置连接池--><!--destroy-method=close 配置的属性是spring容器关闭时，可以正常关闭数据源-->
+    <!--spring配置文件中配置的连接池，通过spring就会把这个实例对象赋值给javax.sql.DataSource接口-->
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close">
+        <!-- 数据源驱动类可不写，Druid默认会自动根据URL识别DriverClass -->
+        <property name="driverClassName" value="${jdbc.driverClassName}"/>
+        <!-- 基本属性 url、user、password -->
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <!-- 配置初始化大小、最小、最大 -->
+        <property name="initialSize" value="3"/>
+        <property name="minIdle" value="3"/>
+        <property name="maxActive" value="10"/>
+        <!-- 配置获取连接等待超时的时间 -->
+        <property name="maxWait" value="10000"/>
+        <!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 -->
+        <property name="timeBetweenEvictionRunsMillis" value="60000"/>
+        <!-- 配置一个连接在池中最小生存的时间，单位是毫秒 -->
+        <property name="minEvictableIdleTimeMillis" value="300000"/>
+        <!--用于验证连接是否成功，进行查询验证，value是sql语句，如果值为null，下边的三个配置都不会有作用-->
+        <property name="validationQuery" value="SELECT 'x'"/>
+        <!--建议配置为true，不影响性能，并且保证安全性。申请连接的时候检测，如果空闲时间大于
+            timeBetweenEvictionRunsMillis，执行validationQuery检测连接是否有效。-->
+        <property name="testWhileIdle" value="true"/>
+        <!--申请连接时执行validationQuery检测连接是否有效，true做了这个配置会降低性能。一般false-->
+        <property name="testOnBorrow" value="false"/>
+        <!--归还连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能。一般false-->
+        <property name="testOnReturn" value="false"/>
+        <!-- 配置监控统计拦截的filters可以监控sql的执行性能 -->
+        <property name="filters" value="stat"/>
+        <!-- 打开PSCache，并且指定每个连接上PSCache的大小 这是对oracle内存占用优化(对支持游标的数据库性能提升巨大)-->
+        <!--<property name="poolPreparedStatements" value="true" />-->
+        <!--<property name="maxPoolPreparedStatementPerConnectionSize" value="20" />-->
+    </bean>
+
+    <!--mybatis核心配置文件路径-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dynamicDataSource" />
+        <!--<property name="configLocation" value="classpath:/mybatis-config.xml"/>-->
+        <!--这个与上面只要配置一个就行了-->
+        <property name="mapperLocations" value="classpath*:com/model/mybatis/dao/mapper/*.xml"/>
+    </bean>
+    <!--自动扫描接口，不用每个接口都配置一个-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.model.mybatis.dao.interfaces" />
+        <!--<property name="sqlSessionFactory" ref="sqlSessionFactory" />-->
+    </bean>
+
+    <!-- todo 读数据库?? -->
+    <bean id="dataSourceR" parent="dataSource">
+        <!-- 基本属性 url、user、password -->
+        <property name="url" value="${jdbc.slave.url}"/>
+        <property name="username" value="${jdbc.slave.username}"/>
+        <property name="password" value="${jdbc.slave.password}"/>
+    </bean>
+    <!-- 写数据库 -->
+    <bean id="dataSourceRW" parent="dataSource" />
+    <!-- spring配置多数据库动态切换配置 -->
+    <bean id="dynamicDataSource" class="com.model.springs.datasource.DynamicDataSource">
+        <!-- 通过key-value关联数据源 -->
+        <property name="targetDataSources">
+            <map>
+                <entry value-ref="dataSourceRW" key="dataSourceKeyRW"></entry>
+                <entry value-ref="dataSourceR" key="dataSourceKeyR"></entry>
+            </map>
+        </property>
+        <property name="defaultTargetDataSource" ref="dataSourceRW" />
+    </bean>
+
+    <!--设置数据库事务切面和切换数据库切面执行的顺序-->
+    <aop:config>
+        <aop:pointcut id="transactionPointCut" expression="execution(* com.test.service.*.*(..))" />
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="transactionPointCut" order="2"/>
+        <aop:advisor advice-ref="dataSourceExchange" pointcut-ref="transactionPointCut" order="1"/>
+    </aop:config>
+
+    <!-- 配置数据库注解aop开始 -->
+    <bean id="DynamicDataSourceAspect" class="com.model.springs.datasource.DataSourceAspect" />
+    <aop:config>
+        <!--设置功能aop切面-->
+        <aop:aspect  ref="DynamicDataSourceAspect" order="1">
+            <!--配置com.tvjoy.btop..service包下所有类或接口的所有方法     -->
+            <aop:pointcut id="serviceTier"
+                          expression="execution(* com.tvjoy.btop.webapp..*.*(..))" />
+            <aop:before pointcut-ref="serviceTier" method="doBefore"/>
+            <aop:after pointcut-ref="serviceTier" method="doAfter"/>
+            <aop:around pointcut-ref="serviceTier" method="doAround"/>
+            <aop:after-throwing pointcut-ref="serviceTier" method="doThrowing" throwing="ex"/>
+        </aop:aspect>
+    </aop:config>
+
+
+
+
+    <!--通过配置freemaker视图解析器来进行HTML文件的解析-->
+    <!--freemarker模板配置-->
+    <bean id="freemarkerConfig"
+          class="org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer">
+        <property name="templateLoaderPath" value="/WEB-INF/pages/"/>
+        <property name="freemarkerSettings">
+            <props>
+                <prop key="template_update_delay">0</prop>
+                <prop key="default_encoding">UTF-8</prop>
+                <prop key="number_format">0.##</prop>
+                <prop key="datetime_format">yyyy-MM-dd HH:mm:ss</prop>
+                <prop key="classic_compatible">true</prop>
+                <prop key="template_exception_handler">ignore</prop>
+            </props>
+        </property>
+    </bean>
+    <!-- 设置freeMarker的配置文件路径 -->
+    <bean id="freemarkerConfiguration"
+          class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <!--注释掉的下方代码是指引freemarker的基本信息的配置位置，因为我已经将配置信息移到了applicationContext文件下，所以这里就没必要存在了，不注释也不会有问题的 -->
+        <!--<property name="location" value="classpath:/WEB-INF/config/freemarker.properties" />-->
+    </bean>
+    <bean id="viewResolver" class="org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver">
+        <property name="exposeRequestAttributes" value="true"/>
+        <property name="exposeSessionAttributes" value="true"/>
+        <property name="viewClass" value="org.springframework.web.servlet.view.freemarker.FreeMarkerView"/>
+        <property name="cache" value="true"/>
+        <!--applicationContext.xml里有这样一行代码：<property name="templateLoaderPath" value="/WEB-INF/views/" /> 已经指定了视图位置。如果我们这里依然保留下方代码，页面回报406的找不到的错误 -->
+        <property name="prefix" value=""/>
+        <property name="suffix" value=".html"/>
+        <property name="contentType" value="text/html; charset=UTF-8"/>
+        <property name="order" value="2"/>
+    </bean>
+    <!--springmvc的jsp的视图解析器，这个视图解析器只会解析jsp视图-->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix" value="/WEB-INF/pages/"/>
+        <property name="suffix" value=".jsp"/>
+        <property name="order" value="3"/>
+    </bean>
+
+    <!--配置事务管理器-->
+    <bean id="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <bean id="transactionTemplate" class="org.springframework.transaction.support.TransactionTemplate">
+        <property name="transactionManager" ref="transactionManager"/>
+    </bean>
+
+    <!-- 配置事务的属性 -->
+    <tx:advice id="TestAdvice" transaction-manager="transactionManager">
+        <!--配置事务传播性，隔离级别以及超时回滚等问题 -->
+        <tx:attributes>
+            <!--<tx:method name="search*" propagation="REQUIRED" read-only="true" isolation="DEFAUT" TIMEOUT="-1" />-->
+            <tx:method name="del*" propagation="REQUIRED" />
+            <tx:method name="update*" propagation="REQUIRED" />
+            <tx:method name="add*" propagation="REQUIRED" />
+        </tx:attributes>
+    </tx:advice>
+
+    <!--事务的切入点-->
+    <aop:config>
+        <!--配置事务切点 -->
+        <aop:pointcut id="services"
+                      expression="execution(public* com.model.springs.aop.*.*(..))" />
+        <aop:advisor pointcut-ref="services" advice-ref="TestAdvice" />
+    </aop:config>
+
+    <bean id="springe" class="com.model.mybatis.entitys.SpringEntity" scope="prototype">
+        <property name="age" value="12"/>
+        <property name="name" value="呵呵"/>
+    </bean>
+
+    <!--日志的切面实现类-->
+    <bean id="ser" class="com.model.springs.external.ProductService"></bean>
+    <!--测试aop-->
+    <aop:config>
+        <!--配置一个切面-->
+        <aop:aspect id="se1" ref="ser">
+            <!--定义一个切入点-->
+            <aop:pointcut id="pc" expression="execution(public * com.model.springs.aop.*.*(..))" />
+            <!--应用前置通知，切面类中的方法名==表示把这个方法切入到什么地方中-->
+            <!--<aop:before method="before" pointcut-ref="pc"/>-->
+            <!--应用后置通知-->
+            <!--<aop:after method="after" pointcut-ref="pc"/>-->
+            <!--抛出异常后通知-->
+            <!--<aop:after-throwing method="afterThrowing" pointcut-ref="pc"/>-->
+            <!--应用最终通知-->
+            <!--<aop:after-returning method="afterReturn" pointcut-ref="pc"/>-->
+            <!--应用环绕通知,就是会在这个方法的前后都执行环绕方法-->
+            <aop:around method="around" pointcut-ref="pc"/>
+        </aop:aspect>
+    </aop:config>
+    <!--事务切入点-->
+    <!--<aop:config>-->
+        <!--定义一个切入点-->
+        <!--<aop:pointcut id="pc" expression="execution(public * com.model.springs.aop.*.*(..))" />-->
+        <!--<aop:advisor pointcut-ref="pc" advice-ref="aa" />-->
+    <!--</aop:config>-->
+
+
+
+
+
+
+
+
+    <bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager">
+        <property name="caches">
+            <set>
+                <bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean">
+                    <property name="name" value="default"/>
+                </bean>
+                <bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean">
+                    <property name="name" value="roleMenus"/>
+                </bean>
+            </set>
+        </property>
+    </bean>
+    <!--memcached配置参数bean-->
+    <bean name="memcachedClient" class="net.rubyeye.xmemcached.utils.XMemcachedClientFactoryBean"
+          destroy-method="shutdown">
+        <!-- set servers -->
+        <property name="servers">
+            <value>localhost:11221 localhost:11220</value>
+        </property>
+        <!-- set servers weights -->
+        <property name="weights">
+            <list>
+                <value>1</value>
+                <value>2</value>
+            </list>
+        </property>
+        <!--set noi connection pool size-->
+        <property name="connectionPoolSize" value="3"></property>
+        <!-- set binary protocol,default is TextCommandFactory -->
+        <property name="commandFactory">
+            <bean class="net.rubyeye.xmemcached.command.BinaryCommandFactory"></bean>
+        </property>
+        <!-- 序列化转换器， -->
+        <property name="transcoder">
+            <bean class="net.rubyeye.xmemcached.transcoders.SerializingTranscoder"></bean>
+        </property>
+        <!-- set client distributed strategy,hash 算法 -->
+        <property name="sessionLocator">
+            <bean class="net.rubyeye.xmemcached.impl.KetamaMemcachedSessionLocator"></bean>
+        </property>
+        <!-- ByteBuffer allocator :IoBuffer 分配器 -->
+        <property name="bufferAllocator">
+            <bean class="net.rubyeye.xmemcached.buffer.SimpleBufferAllocator"></bean>
+        </property>
+    </bean>
+</beans>

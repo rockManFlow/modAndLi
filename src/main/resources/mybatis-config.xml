@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!--mybatis的核心配置文件，setting，typeAliases，environments，mappers顺序不能乱，因为mybatis是按照这个顺序来解析这个配置文件的，否则会报错-->
+
+    <!--设置mybatis的一些全局属性-->
+    <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <setting name="lazyLoadingEnabled" value="true"/>
+        <!--mapUnderscoreToCamelCase: 在映射database column名字和entity属性名时，自动将带下划线column名转化为常见的Java驼峰形式属性名
+            lazyLoadingEnabled: 延迟加载entity的关联属性-->
+    </settings>
+    <!-- 配置Java类型的别名，就不用写相关类的全称 -->
+    <!--<typeAliases>-->
+        <!--<typeAlias alias="User" type="cn.hncu.domain.User" />-->
+    <!--</typeAliases>-->
+    <!--用于配置数据源，可以配置多个environment表示不同数据源-->
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC" />
+            <dataSource type="POOLED">
+                <property name="driver" value="com.mysql.jdbc.Driver" />
+                <property name="url" value="jdbc:mysql://localhost:3306/test?useUnicode=true&amp;characterEncoding=UTF-8" />
+                <property name="username" value="root" />
+                <property name="password" value="123" />
+                <property name="poolMaximumActiveConnections" value="5"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <!--对应dao接口的mapper映射文件-->
+    <mappers>
+        <mapper resource="com/model/mybatis/dao/mapper/ExcelImplMapper.xml"></mapper>
+    </mappers>
+</configuration>

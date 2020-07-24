@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+         version="3.1">
+    <!--TODO web容器启动顺序context-param,listener,servlet,filter，spring框架就是自己实现一个监听器来获取servletContext
+        TODO 对象，从这个对象中获取配置的param参数，来加载对应框架的配置文件，进行框架的启动
+    -->
+    <!--都属于web容器的参数-->
+    <!--spring-->
+    <!--<context-param>-->
+        <!--<param-name>contextConfigLocation</param-name>-->
+        <!--&lt;!&ndash;什么是classpath：就是WEB-INF下编译的classes(编译完的代码和resource文件)和lib&ndash;&gt;-->
+        <!--<param-value>classpath*:/applicationContext.xml</param-value>-->
+    <!--</context-param>-->
+    <!--&lt;!&ndash;负责启动spring容器的web监听器&ndash;&gt;-->
+    <!--<listener>-->
+        <!--<listener-class>-->
+            <!--org.springframework.web.context.ContextLoaderListener-->
+        <!--</listener-class>-->
+    <!--</listener>-->
+    <!--TODO 验证自己关于框架和web容器整合的一些猜想-->
+    <context-param>
+        <param-name>myConfigLocation</param-name>
+        <param-value>classpath*:/myfile.xml</param-value>
+    </context-param>
+    <listener>
+        <listener-class>com.model.servlet.MyListener</listener-class>
+    </listener>
+    <servlet>
+        <servlet-name>mmm</servlet-name>
+        <servlet-class>com.model.servlet.BaseServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>mmm</servlet-name>
+        <url-pattern>*.htm</url-pattern>
+    </servlet-mapping>
+    <!--
+        指定Spring来处理请求的Servlet， 默认查找mvc配置文件的地址是：/WEB-INF/${servletName}-servlet.xml,
+         我们配置的示例中默认查找的mvc配置文件是： /WEB-INF/annomvc-servlet.xml。
+    -->
+    <!--这是把springmvc加入servlet系统中，用于启动spring容器-->
+    <servlet>
+        <servlet-name>spring-mvc</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <!--改变springmvc默认的配置文件的位置-->
+        <init-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>classpath*:/springmvc.xml</param-value>
+        </init-param>
+        <!--这一点很重要，表示应用启动时就加载并初始化这个servlet类-->
+        <!--如果不写或为<0,只有在第一次请求时才加载servlet初始化-->
+        <!--所说的第一次请求时，是外部请求。对于内部的运行task跑批就不会触发-->
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>spring-mvc</servlet-name>
+        <url-pattern>/*</url-pattern>
+    </servlet-mapping>
+    <!--用于监听加载spring配置文件-->
+    <!--只要一个实体类(得先注册到spring容器中)实现这个接口
+        org.springframework.context.ApplicationContextAware，
+        通过下面的注册的监听类就会自动的调用setApplicationContext方法给ApplicationContext(IoC容器)实例化-->
+    <!--<listener>-->
+    <!--<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>-->
+    <!--<listener-class>com.model.oper.AppContext</listener-class>-->
+    <!--</listener>-->
+    <!--配置编码过滤器-->
+    <filter>
+        <filter-name>encodingFilter</filter-name>
+        <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+        <init-param>
+            <param-name>encoding</param-name>
+            <param-value>UTF-8</param-value>
+        </init-param>
+    </filter>
+    <filter-mapping>
+        <filter-name>encodingFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>encodingFilter</filter-name>
+        <url-pattern>*.jsp</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>encodingFilter</filter-name>
+        <url-pattern>*.html</url-pattern>
+    </filter-mapping>
+    <!--如果不配置，静态资源就会访问不到。只能访问到动态资源-->
+    <!--<servlet-mapping>-->
+    <!--<servlet-name>default</servlet-name>-->
+    <!--<url-pattern>*.html</url-pattern>-->
+    <!--</servlet-mapping>-->
+
+    <!--请求过滤器,拦截指定的请求-->
+    <filter>
+        <filter-name>SystemFilter</filter-name>
+        <filter-class>com.model.filter.SystemFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>SystemFilter</filter-name>
+        <url-pattern>*.do</url-pattern>
+    </filter-mapping>
+    <welcome-file-list>
+        <welcome-file>login.html</welcome-file>
+    </welcome-file-list>
+
+    <!--DruidDataSource监控sql的执行性能 通过 http://ip:port/项目名/druid/ 地址访问即可看到监控连接池页面-->
+    <servlet>
+        <servlet-name>DruidStatView</servlet-name>
+        <servlet-class>com.alibaba.druid.support.http.StatViewServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DruidStatView</servlet-name>
+        <url-pattern>/druid/*</url-pattern>
+    </servlet-mapping>
+
+    <error-page>
+        <error-code>404</error-code>
+        <location>/WEB-INF/pages/error/404.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/WEB-INF/pages/error/500.jsp</location>
+    </error-page>
+    <error-page>
+        <exception-type>java.lang.Throwable</exception-type>
+        <location>/WEB-INF/pages/error/500.jsp</location>
+    </error-page>
+    <!--https请求配置-->
+    <!-- 浏览器必须使用https访问 -->
+    <!--<security-constraint>-->
+    <!--<web-resource-collection >-->
+    <!--<web-resource-name >SSL</web-resource-name>-->
+    <!--<url-pattern>/*</url-pattern>-->
+    <!--</web-resource-collection>-->
+    <!--<user-data-constraint>-->
+    <!--<transport-guarantee>CONFIDENTIAL</transport-guarantee>-->
+    <!--</user-data-constraint>-->
+    <!--</security-constraint>-->
+
+</web-app>
