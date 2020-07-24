@@ -6,7 +6,7 @@ package com.model.springs.datasource;
  * @date 2019/3/13 14:45
  */
 public class DataSourceContextHolder {
-    private final static ThreadLocal<String> contextHolder=new ThreadLocal<>();
+    private final static ThreadLocal<String> contextHolder=new ThreadLocal<String>();
 
     /**
      * @Description: 设置数据源类型
